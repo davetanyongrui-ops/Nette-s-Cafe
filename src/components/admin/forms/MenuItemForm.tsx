@@ -4,15 +4,19 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { menuItemSchema, MenuItemFormValues } from '@/lib/validations/menu'
 import { createMenuItem, updateMenuItem } from '@/lib/actions/menuActions'
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save } from 'lucide-react'
-import { useState } from 'react'
+import { Loader2, Save, Upload, ImageIcon, X } from 'lucide-react'
+import { useState, useRef } from 'react'
 
 export default function MenuItemForm({ initialData }: { initialData?: any }) {
     const router = useRouter()
     const [submitError, setSubmitError] = useState<string | null>(null)
+    const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null)
+    const [isUploading, setIsUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<MenuItemFormValues>({
+    const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<MenuItemFormValues>({
         resolver: zodResolver(menuItemSchema),
         defaultValues: initialData || {
             name: '',
@@ -20,8 +24,52 @@ export default function MenuItemForm({ initialData }: { initialData?: any }) {
             category: 'soup',
             price: 0,
             is_sold_out: false,
+            image_url: '',
         },
     })
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        // Show local preview immediately
+        const localUrl = URL.createObjectURL(file)
+        setImagePreview(localUrl)
+        setIsUploading(true)
+
+        try {
+            const supabase = createClient()
+            const ext = file.name.split('.').pop()
+            const fileName = `menu-${Date.now()}.${ext}`
+
+            const { error: uploadError } = await supabase.storage
+                .from('menu-images')
+                .upload(fileName, file, { upsert: true })
+
+            if (uploadError) {
+                throw new Error(uploadError.message)
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('menu-images')
+                .getPublicUrl(fileName)
+
+            setValue('image_url', publicUrl)
+            setImagePreview(publicUrl)
+        } catch (err: any) {
+            console.error('Image upload failed:', err)
+            setSubmitError('Image upload failed: ' + (err.message || 'Unknown error'))
+            setImagePreview(initialData?.image_url || null)
+        } finally {
+            setIsUploading(false)
+        }
+    }
+
+    const removeImage = () => {
+        setImagePreview(null)
+        setValue('image_url', '')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+    }
 
     const onSubmit = async (data: MenuItemFormValues) => {
         setSubmitError(null)
@@ -45,6 +93,62 @@ export default function MenuItemForm({ initialData }: { initialData?: any }) {
                 </div>
             )}
 
+            {/* ── Image Upload ────────────────────────────────────────── */}
+            <div>
+                <label className="block text-sm font-bold text-stone-700 mb-2">Food Photo</label>
+                <input type="hidden" {...register('image_url')} />
+                <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                />
+
+                {imagePreview ? (
+                    <div className="relative group w-full max-w-xs">
+                        <img
+                            src={imagePreview}
+                            alt="Food preview"
+                            className="w-full h-48 object-cover rounded-2xl border border-stone-200 shadow-sm"
+                        />
+                        {isUploading && (
+                            <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                                <Loader2 className="animate-spin text-emerald-600" size={32} />
+                            </div>
+                        )}
+                        <div className="absolute top-2 right-2 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-md hover:bg-white transition text-stone-600"
+                                title="Change image"
+                            >
+                                <Upload size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={removeImage}
+                                className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-md hover:bg-red-50 transition text-red-500"
+                                title="Remove image"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full max-w-xs h-48 rounded-2xl border-2 border-dashed border-stone-200 hover:border-emerald-400 bg-stone-50 hover:bg-emerald-50/30 transition flex flex-col items-center justify-center gap-2 text-stone-400 hover:text-emerald-600 cursor-pointer"
+                    >
+                        <ImageIcon size={32} />
+                        <span className="text-sm font-semibold">Click to upload food photo</span>
+                        <span className="text-xs text-stone-400">JPG, PNG, WebP · Max 5 MB</span>
+                    </button>
+                )}
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-stone-700 mb-2">Item Name</label>
@@ -62,7 +166,11 @@ export default function MenuItemForm({ initialData }: { initialData?: any }) {
                     <label className="block text-sm font-bold text-stone-700 mb-2">Category</label>
                     <select {...register('category')} className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-stone-50 focus:bg-white transition appearance-none">
                         <option value="soup">Soup</option>
+                        <option value="special">Daily Special</option>
+                        <option value="pie">Pie</option>
+                        <option value="pastry">Pastry</option>
                         <option value="muffin">Muffin</option>
+                        <option value="wrap">Wrap</option>
                         <option value="salad_base">Salad Base</option>
                         <option value="salad_protein">Salad Protein</option>
                         <option value="salad_dressing">Salad Dressing</option>
@@ -93,7 +201,7 @@ export default function MenuItemForm({ initialData }: { initialData?: any }) {
                 </button>
                 <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isUploading}
                     className="flex-1 bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/20 disabled:opacity-70 flex items-center justify-center gap-2"
                 >
                     {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}

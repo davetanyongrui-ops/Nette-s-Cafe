@@ -4,13 +4,14 @@ import { notFound } from 'next/navigation'
 import { deleteMenuItem } from '@/lib/actions/menuActions'
 import { Trash2 } from 'lucide-react'
 
-export default async function EditMenuItemPage({ params }: { params: { id: string } }) {
+export default async function EditMenuItemPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
     const supabase = await createClient()
 
     const { data: item } = await supabase
         .from('menu_items')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
     if (!item) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Shield, Loader2 } from 'lucide-react'
@@ -11,21 +11,30 @@ export default function AdminLoginPage() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const router = useRouter()
+    const supabase = createClient()
+
+    useEffect(() => {
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                router.push('/admin/dashboard')
+            }
+        }
+        checkUser()
+    }, [router, supabase])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
 
-        const supabase = createClient()
-
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: loginError } = await supabase.auth.signInWithPassword({
             email,
             password,
         })
 
-        if (error) {
-            setError(error.message)
+        if (loginError) {
+            setError(loginError.message)
             setLoading(false)
         } else {
             router.push('/admin/dashboard')

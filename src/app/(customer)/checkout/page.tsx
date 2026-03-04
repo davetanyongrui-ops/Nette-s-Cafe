@@ -63,15 +63,17 @@ export default function CheckoutPage() {
 
                                     {item.customizations && (
                                         <div className="bg-stone-50 p-3 rounded-lg text-sm">
-                                            <p><span className="font-semibold text-stone-700">Base:</span> {item.customizations.base.name}</p>
-                                            {item.customizations.proteins.length > 0 && (
-                                                <p><span className="font-semibold text-stone-700">Proteins:</span> {item.customizations.proteins.map((p: any) => p.name).join(', ')}</p>
+                                            {item.customizations.base && (
+                                                <p><span className="font-semibold text-stone-700">Base:</span> {item.customizations.base.name || item.customizations.base}</p>
                                             )}
-                                            {item.customizations.dressings.length > 0 && (
-                                                <p><span className="font-semibold text-stone-700">Dressing:</span> {item.customizations.dressings.map((d: any) => d.name).join(', ')}</p>
+                                            {item.customizations.proteins?.length > 0 && (
+                                                <p><span className="font-semibold text-stone-700">Proteins:</span> {item.customizations.proteins.map((p: any) => p.name || p).join(', ')}</p>
                                             )}
-                                            {item.customizations.toppings.length > 0 && (
-                                                <p><span className="font-semibold text-stone-700">Toppings:</span> {item.customizations.toppings.map((t: any) => t.name).join(', ')}</p>
+                                            {item.customizations.dressings?.length > 0 && (
+                                                <p><span className="font-semibold text-stone-700">Dressing:</span> {item.customizations.dressings.map((d: any) => d.name || d).join(', ')}</p>
+                                            )}
+                                            {item.customizations.toppings?.length > 0 && (
+                                                <p><span className="font-semibold text-stone-700">Toppings:</span> {item.customizations.toppings.map((t: any) => t.name || t).join(', ')}</p>
                                             )}
                                         </div>
                                     )}
@@ -91,8 +93,8 @@ export default function CheckoutPage() {
                                 <button
                                     onClick={() => setOrderType('eat-in')}
                                     className={`py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition ${orderType === 'eat-in'
-                                            ? 'bg-emerald-500 text-white ring-2 ring-emerald-400 ring-offset-2 ring-offset-emerald-950'
-                                            : 'bg-emerald-900 text-emerald-200 hover:bg-emerald-800'
+                                        ? 'bg-emerald-500 text-white ring-2 ring-emerald-400 ring-offset-2 ring-offset-emerald-950'
+                                        : 'bg-emerald-900 text-emerald-200 hover:bg-emerald-800'
                                         }`}
                                 >
                                     <Utensils size={18} /> Eat-in
@@ -100,8 +102,8 @@ export default function CheckoutPage() {
                                 <button
                                     onClick={() => setOrderType('takeaway')}
                                     className={`py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition ${orderType === 'takeaway'
-                                            ? 'bg-emerald-500 text-white ring-2 ring-emerald-400 ring-offset-2 ring-offset-emerald-950'
-                                            : 'bg-emerald-900 text-emerald-200 hover:bg-emerald-800'
+                                        ? 'bg-emerald-500 text-white ring-2 ring-emerald-400 ring-offset-2 ring-offset-emerald-950'
+                                        : 'bg-emerald-900 text-emerald-200 hover:bg-emerald-800'
                                         }`}
                                 >
                                     <ShoppingBag size={18} /> Takeaway

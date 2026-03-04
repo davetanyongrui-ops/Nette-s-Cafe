@@ -1,35 +1,34 @@
-import Link from 'next/link'
-import { CartButton } from '@/components/customer/CartButton'
+import { createClient } from '@/lib/supabase/server'
+import { toSettingsMap, getSetting } from '@/types/database'
+import CustomerShell from '@/components/customer/CustomerShell'
 
-export default function CustomerLayout({ children }: { children: React.ReactNode }) {
+export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
+    const supabase = await createClient()
+
+    // Fetch settings
+    const { data: settingsData } = await supabase.from('site_settings').select('key, value')
+    const s = toSettingsMap(settingsData ?? [])
+
+    // Fetch custom pages for navigation
+    const { data: pagesData } = await supabase
+        .from('custom_pages')
+        .select('id, title, slug')
+        .order('created_at', { ascending: true })
+
     return (
         <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
-            <header className="bg-white/80 backdrop-blur-md border-b border-stone-200 sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-                    <Link href="/" className="text-2xl font-black text-emerald-900 tracking-tight">
-                        Nette's Cafe
-                    </Link>
-                    <nav className="hidden md:flex items-center gap-8">
-                        <Link href="/menu/soups" className="text-sm font-semibold text-stone-600 hover:text-emerald-700 transition">Nourishing Soups</Link>
-                        <Link href="/menu/muffins" className="text-sm font-semibold text-stone-600 hover:text-emerald-700 transition">Healthy Muffins</Link>
-                        <Link href="/menu/salad-bar" className="text-sm font-semibold text-stone-600 hover:text-emerald-700 transition">Salad Bar</Link>
-                        <div className="h-6 w-px bg-stone-200"></div>
-                        <CartButton />
-                    </nav>
-                </div>
-            </header>
-
-            <main className="flex-1 flex flex-col">
-                {children}
-            </main>
-
-            <footer className="bg-stone-950 text-stone-400 py-12">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                    <h3 className="text-xl font-bold text-stone-100 tracking-tight mb-4">Nette's Cafe</h3>
-                    <p className="text-sm text-stone-500 mb-8 max-w-md mx-auto">Providing nutritious, delicious meals for hospital staff, patients, and visitors.</p>
-                    <p className="text-xs">&copy; {new Date().getFullYear()} Nette's Cafe. All rights reserved.</p>
-                </div>
-            </footer>
+            <CustomerShell
+                footerData={{
+                    cafeName: getSetting(s, 'footer_cafe_name', "Nette's Cafe"),
+                    tagline: getSetting(s, 'footer_tagline', 'Providing nutritious, delicious meals for hospital staff, patients, and visitors.'),
+                    copyright: getSetting(s, 'footer_copyright', `© ${new Date().getFullYear()} Nette's Cafe. All rights reserved.`),
+                }}
+                customPages={pagesData || []}
+            >
+                <main className="flex-1 flex flex-col">
+                    {children}
+                </main>
+            </CustomerShell>
         </div>
     )
 }

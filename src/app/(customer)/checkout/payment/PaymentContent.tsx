@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useCartStore } from '@/lib/store/cartStore'
 import { createClient } from '@/lib/supabase/client'
 import { QrCode, Upload, CheckCircle2, Loader2 } from 'lucide-react'
@@ -18,11 +18,37 @@ export default function PaymentContent() {
     const amount = searchParams.get('amount')
     const orderType = searchParams.get('type') || 'eat-in'
 
-    const submitOrder = async (paymentStatus: 'pending' | 'manual_verification_required') => {
+    const [receiptFile, setReceiptFile] = useState<File | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const submitOrder = async (paymentStatus: 'pending' | 'manual_verification_required', file?: File) => {
         setIsSubmitting(true)
         const supabase = createClient()
 
         try {
+            let receiptUrl = null
+
+            // Upload receipt if provided
+            if (file) {
+                const fileExt = file.name.split('.').pop()
+                const fileName = `receipt-${Date.now()}.${fileExt}`
+
+                const { error: uploadError, data } = await supabase.storage
+                    .from('receipts')
+                    .upload(fileName, file)
+
+                if (uploadError) {
+                    console.error('Upload Error:', uploadError)
+                    throw new Error('Failed to upload receipt')
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('receipts')
+                    .getPublicUrl(fileName)
+
+                receiptUrl = publicUrl
+            }
+
             // 1. Create order
             const { data: order, error: orderError } = await supabase
                 .from('orders')
@@ -30,7 +56,8 @@ export default function PaymentContent() {
                     order_type: orderType,
                     total_amount: Number(amount),
                     payment_status: paymentStatus,
-                    status: 'pending'
+                    status: 'pending',
+                    receipt_image_url: receiptUrl
                 })
                 .select()
                 .single()
@@ -62,6 +89,14 @@ export default function PaymentContent() {
             alert('Failed to place order. Please try again.')
         } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0]
+            setReceiptFile(file)
+            submitOrder('manual_verification_required', file)
         }
     }
 
@@ -115,8 +150,15 @@ export default function PaymentContent() {
                     </div>
 
                     <div className="p-6 bg-white flex flex-col sm:flex-row gap-4">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                        />
                         <button
-                            onClick={() => submitOrder('manual_verification_required')}
+                            onClick={() => fileInputRef.current?.click()}
                             disabled={isSubmitting}
                             className="flex-1 bg-white border border-stone-200 text-stone-700 py-4 rounded-xl font-bold hover:bg-stone-50 transition flex items-center justify-center gap-2"
                         >
